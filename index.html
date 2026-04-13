@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS-FUEL // Protocol Volatility Enhancement</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0c0f;
+            --bg-secondary: #12161c;
+            --bg-card: #181d24;
+            --accent-cyan: #00e5cc;
+            --accent-amber: #ff9500;
+            --accent-red: #ff2d55;
+            --text-primary: #e8eaed;
+            --text-muted: #6b7280;
+            --border-color: #2a3441;
+            --glow-cyan: 0 0 20px rgba(0, 229, 204, 0.4);
+            --glow-amber: 0 0 20px rgba(255, 149, 0, 0.4);
+            --glow-red: 0 0 20px rgba(255, 45, 85, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-display {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Scanline overlay */
+        .scanlines::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 229, 204, 0.015) 2px,
+                rgba(0, 229, 204, 0.015) 4px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* Grid background */
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 229, 204, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 204, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -1;
+        }
+
+        /* Animated corner brackets */
+        .corner-bracket {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-color: var(--accent-cyan);
+            border-style: solid;
+            border-width: 0;
+        }
+        .corner-bracket.tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+        .corner-bracket.tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+        .corner-bracket.bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+        .corner-bracket.br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+        /* Card styles */
+        .tactical-card {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(18, 22, 28, 0.8) 100%);
+            border: 1px solid var(--border-color);
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .tactical-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+        }
+
+        /* Glitch effect */
+        @keyframes glitch {
+            0%, 90%, 100% { transform: translate(0); }
+            92% { transform: translate(-2px, 1px); }
+            94% { transform: translate(2px, -1px); }
+            96% { transform: translate(-1px, 2px); }
+            98% { transform: translate(1px, -2px); }
+        }
+
+        .glitch-hover:hover {
+            animation: glitch 0.3s ease-in-out;
+        }
+
+        /* Pulse animation */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: var(--glow-cyan); }
+            50% { box-shadow: 0 0 40px rgba(0, 229, 204, 0.6); }
+        }
+
+        .pulse-active {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        /* Molecular canvas */
+        #molecule-canvas {
+            border: 1px solid var(--border-color);
+            background: radial-gradient(ellipse at center, rgba(0, 229, 204, 0.05) 0%, transparent 70%);
+        }
+
+        /* Custom range slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid var(--border-color);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-cyan);
+            border-radius: 2px;
+            cursor: pointer;
+            box-shadow: var(--glow-cyan);
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 30px rgba(0, 229, 204, 0.8);
+        }
+
+        input[type="range"].danger::-webkit-slider-thumb {
+            background: var(--accent-red);
+            box-shadow: var(--glow-red);
+        }
+
+        input[type="range"].warning::-webkit-slider-thumb {
+            background: var(--accent-amber);
+            box-shadow: var(--glow-amber);
+        }
+
+        /* Status indicator */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Data stream animation */
+        @keyframes data-stream {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 0% 100%; }
+        }
+
+        .data-stream {
+            background: linear-gradient(180deg, 
+                transparent 0%,
+                rgba(0, 229, 204, 0.1) 50%,
+                transparent 100%
+            );
+            background-size: 100% 200%;
+            animation: data-stream 3s linear infinite;
+        }
+
+        /* Button styles */
+        .btn-tactical {
+            background: linear-gradient(135deg, rgba(0, 229, 204, 0.1) 0%, rgba(0, 229, 204, 0.05) 100%);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 12px 24px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-tactical::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 229, 204, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-tactical:hover::before {
+            left: 100%;
+        }
+
+        .btn-tactical:hover {
+            background: rgba(0, 229, 204, 0.2);
+            box-shadow: var(--glow-cyan);
+            transform: translateY(-2px);
+        }
+
+        .btn-tactical:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            background: linear-gradient(135deg, rgba(255, 45, 85, 0.1) 0%, rgba(255, 45, 85, 0.05) 100%);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 45, 85, 0.2);
+            box-shadow: var(--glow-red);
+        }
+
+        /* Progress bars */
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.5s ease, background 0.3s ease;
+        }
+
+        /* Warning stripe */
+        .warning-stripe {
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--accent-amber),
+                var(--accent-amber) 10px,
+                #1a1a1a 10px,
+                #1a1a1a 20px
+            );
+        }
+
+        /* Floating particles */
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hide-mobile {
+                display: none;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Element entrance animations */
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .fade-in-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Compound card hover */
+        .compound-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .compound-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .compound-card.selected {
+            border-color: var(--accent-amber);
+            box-shadow: var(--glow-amber);
+        }
+
+        /* Typing effect */
+        .typing-cursor::after {
+            content: '_';
+            animation: cursor-blink 1s step-end infinite;
+        }
+
+        @keyframes cursor-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="scanlines">
+    <div class="grid-bg"></div>
+    
+    <!-- Floating particles container -->
+    <div id="particles-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <!-- Header -->
+    <header class="relative z-10 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+        <div class="warning-stripe h-1"></div>
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 border border-[var(--accent-cyan)] flex items-center justify-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--accent-cyan)]">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="font-display font-black text-xl tracking-wider">NEXUS-FUEL</h1>
+                        <p class="text-xs text-[var(--text-muted)] tracking-widest">PROTOCOL VX-7 // CLASSIFIED</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="hide-mobile flex items-center gap-2">
+                        <div class="status-dot bg-[var(--accent-cyan)]"></div>
+                        <span class="text-xs tracking-wider">SYSTEM ONLINE</span>
+                    </div>
+                    <div class="hide-mobile text-right">
+                        <div class="text-xs text-[var(--text-muted)]">SESSION</div>
+                        <div id="session-timer" class="font-display text-sm text-[var(--accent-cyan)]">00:00:00</div>
+                    </div>
+                    <div class="flex items-center gap-2 px-3 py-2 border border-[var(--accent-red)] bg-[rgba(255,45,85,0.1)]">
+                        <div class="status-dot bg-[var(--accent-red)]"></div>
+                        <span class="text-xs text-[var(--accent-red)] tracking-wider">RESTRICTED</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- Alert Banner -->
+        <div id="alert-banner" class="mb-8 tactical-card p-4 border-l-4 border-l-[var(--accent-amber)] fade-in-up">
+            <div class="flex items-start gap-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--accent-amber)] flex-shrink-0 mt-1">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                    <h3 class="font-display font-bold text-[var(--accent-amber)] mb-1">VOLATILITY MODIFICATION ACTIVE</h3>
+                    <p class="text-sm text-[var(--text-muted)]">Modification de la composition chimique en cours. Toute alteration non autorisee entrainera un verrouillage du systeme.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-6">
+            
+            <!-- Left Panel: Composition -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Base Compounds -->
+                <div class="tactical-card p-6 fade-in-up" style="transition-delay: 0.1s">
+                    <div class="corner-bracket tl"></div>
+                    <div class="corner-bracket tr"></div>
+                    <div class="corner-bracket bl"></div>
+                    <div class="corner-bracket br"></div>
+                    
+                    <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)] mb-4">COMPOSANTS BASE</h2>
+                    
+                    <div class="space-y-4" id="base-compounds">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Catalyst Selection -->
+                <div class="tactical-card p-6 fade-in-up" style="transition-delay: 0.2s">
+                    <div class="corner-bracket tl"></div>
+                    <div class="corner-bracket tr"></div>
+                    <div class="corner-bracket bl"></div>
+                    <div class="corner-bracket br"></div>
+                    
+                    <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)] mb-4">CATALYSEURS</h2>
+                    
+                    <div class="grid grid-cols-2 gap-3" id="catalysts">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Visualization -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Molecular Viewer -->
+                <div class="tactical-card p-6 fade-in-up" style="transition-delay: 0.15s">
+                    <div class="corner-bracket tl"></div>
+                    <div class="corner-bracket tr"></div>
+                    <div class="corner-bracket bl"></div>
+                    <div class="corner-bracket br"></div>
+                    
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)]">VISUALISATION MOLECULAIRE</h2>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-rotate" class="w-8 h-8 border border-[var(--border-color)] flex items-center justify-center hover:border-[var(--accent-cyan)] hover:text-[var(--accent-cyan)] transition-colors" aria-label="Toggle rotation">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                </svg>
+                            </button>
+                            <button id="btn-reset-view" class="w-8 h-8 border border-[var(--border-color)] flex items-center justify-center hover:border-[var(--accent-cyan)] hover:text-[var(--accent-cyan)] transition-colors" aria-label="Reset view">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <canvas id="molecule-canvas" width="400" height="350" class="w-full"></canvas>
+                    
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="p-2 bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+                            <div class="text-[var(--text-muted)]">LIAISONS</div>
+                            <div id="bond-count" class="font-display text-lg text-[var(--accent-cyan)]">0</div>
+                        </div>
+                        <div class="p-2 bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+                            <div class="text-[var(--text-muted)]">ATOMES</div>
+                            <div id="atom-count" class="font-display text-lg text-[var(--accent-cyan)]">0</div>
+                        </div>
+                        <div class="p-2 bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+                            <div class="text-[var(--text-muted)]">MASSE MOL</div>
+                            <div id="mol-mass" class="font-display text-lg text-[var(--accent-cyan)]">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Volatility Gauge -->
+                <div class="tactical-card p-6 fade-in-up" style="transition-delay: 0.25s">
+                    <div class="corner-bracket tl"></div>
+                    <div class="corner-bracket tr"></div>
+                    <div class="corner-bracket bl"></div>
+                    <div class="corner-bracket br"></div>
+                    
+                    <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)] mb-4">INDICE DE VOLATILITE</h2>
+                    
+                    <div class="relative h-8 bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden mb-2">
+                        <div id="volatility-bar" class="absolute inset-y-0 left-0 transition-all duration-500" style="width: 0%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-amber), var(--accent-red));"></div>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span id="volatility-value" class="font-display font-bold text-sm mix-blend-difference">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between text-xs text-[var(--text-muted)]">
+                        <span>STABLE</span>
+                        <span class="text-[var(--accent-amber)]">REACTIF</span>
+                        <span class="text-[var(--accent-red)]">CRITIQUE</span>
+                    </div>
+                    
+                    <div id="volatility-warning" class="mt-4 p-3 bg-[rgba(255,45,85,0.1)] border border-[var(--accent-red)] hidden">
+                        <div class="flex items-center gap-2 text-[var(--accent-red)]">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span class="text-xs tracking-wider">SEUIL CRITIQUE ATTEINT</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Properties & Controls -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Properties Display -->
+                <div class="tactical-card p-6 fade-in-up" style="transition-delay: 0.2s">
+                    <div class="corner-bracket tl"></div>
+                    <div class="corner-bracket tr"></div>
+                    <div class="corner-bracket bl"></div>
+                    <div class="corner-bracket br"></div>
+                    
+                    <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)] mb-4">PROPRIETES DYNAMIQUES</h2>
+                    
+                    <div class="space-y-4" id="properties-list">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Modification Controls -->
+                <div class="tactical-card p-6 fade-in-up" style="transition-delay: 0.3s">
+                    <div class="corner-bracket tl"></div>
+                    <div class="corner-bracket tr"></div>
+                    <div class="corner-bracket bl"></div>
+                    <div class="corner-bracket br"></div>
+                    
+                    <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)] mb-4">CONTROLES DE MODIFICATION</h2>
+                    
+                    <div class="space-y-5">
+                        <div>
+                            <div class="flex justify-between text-xs mb-2">
+                                <span>Temperature de Combustion</span>
+                                <span id="temp-value" class="text-[var(--accent-cyan)]">2500K</span>
+                            </div>
+                            <input type="range" id="temperature" min="1000" max="5000" value="2500" class="w-full" aria-label="Temperature de combustion">
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-xs mb-2">
+                                <span>Pression Interne</span>
+                                <span id="pressure-value" class="text-[var(--accent-cyan)]">1.2 MPa</span>
+                            </div>
+                            <input type="range" id="pressure" min="0" max="100" value="30" class="w-full" aria-label="Pression interne">
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-xs mb-2">
+                                <span class="text-[var(--accent-red)]">Instabilite Induite</span>
+                                <span id="instability-value" class="text-[var(--accent-red)]">0%</span>
+                            </div>
+                            <input type="range" id="instability" min="0" max="100" value="0" class="w-full danger" aria-label="Instabilite induite">
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-xs mb-2">
+                                <span>Catalyseur Enhancement</span>
+                                <span id="enhancement-value" class="text-[var(--accent-cyan)]">1.0x</span>
+                            </div>
+                            <input type="range" id="enhancement" min="10" max="50" value="10" class="w-full" aria-label="Catalyseur enhancement">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-3 fade-in-up" style="transition-delay: 0.35s">
+                    <button id="btn-synthesize" class="btn-tactical w-full glitch-hover">
+                        Synthetiser Formule
+                    </button>
+                    <button id="btn-stabilize" class="btn-tactical btn-danger w-full glitch-hover">
+                        Protocol Stabilisation
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Log -->
+        <div class="mt-8 tactical-card p-6 fade-in-up" style="transition-delay: 0.4s">
+            <div class="corner-bracket tl"></div>
+            <div class="corner-bracket tr"></div>
+            <div class="corner-bracket bl"></div>
+            <div class="corner-bracket br"></div>
+            
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)]">JOURNAL SYSTEME</h2>
+                <button id="btn-clear-log" class="text-xs text-[var(--text-muted)] hover:text-[var(--accent-cyan)] transition-colors">EFFACER</button>
+            </div>
+            
+            <div id="system-log" class="h-32 overflow-y-auto bg-[var(--bg-secondary)] border border-[var(--border-color)] p-4 font-mono text-xs space-y-1">
+                <!-- Log entries -->
+            </div>
+        </div>
+
+        <!-- Formula Output -->
+        <div class="mt-6 tactical-card p-6 fade-in-up" style="transition-delay: 0.45s">
+            <div class="corner-bracket tl"></div>
+            <div class="corner-bracket tr"></div>
+            <div class="corner-bracket bl"></div>
+            <div class="corner-bracket br"></div>
+            
+            <h2 class="font-display font-bold text-sm tracking-widest text-[var(--accent-cyan)] mb-4">FORMULE CHIMIQUE RESULTANTE</h2>
+            
+            <div class="flex items-center gap-4">
+                <div id="formula-display" class="flex-1 p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] font-mono text-lg tracking-wider">
+                    <span class="text-[var(--text-muted)]">En attente de composition...</span>
+                </div>
+                <button id="btn-copy-formula" class="btn-tactical px-4" aria-label="Copier formule">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 border-t border-[var(--border-color)] mt-12 py-6 bg-[var(--bg-secondary)]">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[var(--text-muted)]">
+                <div class="flex items-center gap-4">
+                    <span>NEXUS-FUEL CORP // DIVISION RECHERCHE AVANCEE</span>
+                    <span class="hide-mobile">|</span>
+                    <span class="hide-mobile">NIVEAU AUTORISATION: OMEGA-7</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="current-time"></span>
+                    <span class="hide-mobile">|</span>
+                    <span class="hide-mobile">BUILD 2024.12.7</span>
+                </div>
+            </div>
+        </div>
+        <div class="warning-stripe h-1 mt-4"></div>
+    </footer>
+
+    <script>
+        // ============== DATA ==============
+        const baseCompounds = [
+            { id: 'hydrazine', name: 'Hydrazine', symbol: 'N2H4', percentage: 35, color: '#00e5cc', mass: 32.05 },
+            { id: 'nitromethane', name: 'Nitromethane', symbol: 'CH3NO2', percentage: 25, color: '#00b8ff', mass: 61.04 },
+            { id: 'triethylaluminum', name: 'Triethylaluminum', symbol: 'Al(C2H5)3', percentage: 20, color: '#ff9500', mass: 114.17 },
+            { id: 'clF3', name: 'Trifluorure Chlore', symbol: 'ClF3', percentage: 20, color: '#ff2d55', mass: 92.45 }
+        ];
+
+        const catalysts = [
+            { id: 'pt', name: 'Platine', symbol: 'Pt', factor: 1.5, selected: false },
+            { id: 'pd', name: 'Palladium', symbol: 'Pd', factor: 1.3, selected: false },
+            { id: 'ir', name: 'Iridium', symbol: 'Ir', factor: 1.8, selected: false },
+            { id: 'rh', name: 'Rhodium', symbol: 'Rh', factor: 2.0, selected: false }
+        ];
+
+        const properties = [
+            { id: 'energy', name: 'Energie Specifique', unit: 'MJ/kg', base: 42, value: 42 },
+            { id: 'density', name: 'Densite', unit: 'g/cm3', base: 1.28, value: 1.28 },
+            { id: 'flashpoint', name: 'Point Eclair', unit: 'K', base: 285, value: 285 },
+            { id: 'viscosity', name: 'Viscosite', unit: 'mPa.s', base: 0.8, value: 0.8 }
+        ];
+
+        // ============== STATE ==============
+        let state = {
+            compounds: JSON.parse(JSON.stringify(baseCompounds)),
+            catalysts: JSON.parse(JSON.stringify(catalysts)),
+            properties: JSON.parse(JSON.stringify(properties)),
+            volatility: 0,
+            temperature: 2500,
+            pressure: 30,
+            instability: 0,
+            enhancement: 1.0,
+            isRotating: true,
+            rotationAngle: 0,
+            molecules: [],
+            bonds: []
+        };
+
+        // ============== DOM ELEMENTS ==============
+        let canvas = null;
+        let ctx = null;
+
+        // ============== INITIALIZATION ==============
+        function init() {
+            canvas = document.getElementById('molecule-canvas');
+            ctx = canvas.getContext('2d');
+            
+            generateParticles();
+            renderBaseCompounds();
+            renderCatalysts();
+            renderProperties();
+            initMolecules();
+            setupEventListeners();
+            startAnimations();
+            updateFormula();
+            
+            // Trigger entrance animations
+            setTimeout(() => {
+                document.querySelectorAll('.fade-in-up').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('visible'), i * 50);
+                });
+            }, 100);
+            
+            log('Systeme initialise', 'info');
+            log('Protocole de modification active', 'warning');
+        }
+
+        // ============== PARTICLES ==============
+        function generateParticles() {
+            const container = document.getElementById('particles-container');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                particle.style.opacity = Math.random() * 0.5 + 0.1;
+                animateParticle(particle);
+                container.appendChild(particle);
+            }
+        }
+
+        function animateParticle(particle) {
+            const duration = 10000 + Math.random() * 20000;
+            const startY = parseFloat(particle.style.top);
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = (elapsed % duration) / duration;
+                const y = (startY + progress * 100) % 100;
+                particle.style.top = y + '%';
+                requestAnimationFrame(update);
+            }
+            requestAnimationFrame(update);
+        }
+
+        // ============== RENDER FUNCTIONS ==============
+        function renderBaseCompounds() {
+            const container = document.getElementById('base-compounds');
+            container.innerHTML = '';
+            
+            state.compounds.forEach(compound => {
+                const div = document.createElement('div');
+                div.className = 'compound-card p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)]';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm">${compound.name}</span>
+                        <span class="font-mono text-xs text-[var(--accent-cyan)]">${compound.symbol}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="range" min="0" max="50" value="${compound.percentage}" 
+                               data-compound="${compound.id}" class="flex-1" 
+                               style="--thumb-color: ${compound.color}"
+                               aria-label="${compound.name} percentage">
+                        <span class="text-sm font-display w-12 text-right" style="color: ${compound.color}">${compound.percentage}%</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            // Add event listeners
+            container.querySelectorAll('input[type="range"]').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const id = e.target.dataset.compound;
+                    const value = parseInt(e.target.value);
+                    const compound = state.compounds.find(c => c.id === id);
+                    if (compound) {
+                        compound.percentage = value;
+                        e.target.nextElementSibling.textContent = value + '%';
+                        updateVolatility();
+                        updateProperties();
+                        updateFormula();
+                        log(`${compound.name} ajuste a ${value}%`, 'info');
+                    }
+                });
+            });
+        }
+
+        function renderCatalysts() {
+            const container = document.getElementById('catalysts');
+            container.innerHTML = '';
+            
+            state.catalysts.forEach(catalyst => {
+                const div = document.createElement('div');
+                div.className = `compound-card p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-center ${catalyst.selected ? 'selected' : ''}`;
+                div.dataset.catalyst = catalyst.id;
+                div.innerHTML = `
+                    <div class="font-display text-lg mb-1">${catalyst.symbol}</div>
+                    <div class="text-xs text-[var(--text-muted)]">${catalyst.name}</div>
+                    <div class="text-xs mt-1 ${catalyst.selected ? 'text-[var(--accent-amber)]' : 'text-[var(--text-muted)]'}">x${catalyst.factor}</div>
+                `;
+                div.addEventListener('click', () => toggleCatalyst(catalyst.id));
+                container.appendChild(div);
+            });
+        }
+
+        function renderProperties() {
+            const container = document.getElementById('properties-list');
+            container.innerHTML = '';
+            
+            state.properties.forEach(prop => {
+                const div = document.createElement('div');
+                const percentChange = ((prop.value - prop.base) / prop.base * 100).toFixed(1);
+                const isPositive = percentChange >= 0;
+                const changeColor = isPositive ? 'text-[var(--accent-cyan)]' : 'text-[var(--accent-red)]';
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs">${prop.name}</span>
+                        <span class="text-xs ${changeColor}">${isPositive ? '+' : ''}${percentChange}%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 progress-bar">
+                            <div class="progress-fill bg-[var(--accent-cyan)]" style="width: ${Math.min(100, (prop.value / prop.base) * 50)}%"></div>
+                        </div>
+                        <span class="font-display text-sm w-20 text-right">${prop.value.toFixed(2)} ${prop.unit}</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // ============== MOLECULE VISUALIZATION ==============
+        function initMolecules() {
+            state.molecules = [];
+            state.bonds = [];
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Create atoms based on compounds
+            let angle = 0;
+            state.compounds.forEach(compound => {
+                if (compound.percentage > 0) {
+                    const count = Math.ceil(compound.percentage / 10);
+                    for (let i = 0; i < count; i++) {
+                        const radius = 60 + Math.random() * 80;
+                        state.molecules.push({
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius,
+                            z: Math.random() * 60 - 30,
+                            radius: 6 + compound.percentage / 10,
+                            color: compound.color,
+                            vx: (Math.random() - 0.5) * 0.5,
+                            vy: (Math.random() - 0.5) * 0.5,
+                            vz: (Math.random() - 0.5) * 0.3,
+                            baseX: centerX,
+                            baseY: centerY
+                        });
+                        angle += (Math.PI * 2) / 20;
+                    }
+                }
+            });
+            
+            // Create bonds
+            for (let i = 0; i < state.molecules.length; i++) {
+                for (let j = i + 1; j < state.molecules.length; j++) {
+                    if (Math.random() > 0.6) {
+                        state.bonds.push({ from: i, to: j });
+                    }
+                }
+            }
+            
+            updateMoleculeStats();
+        }
+
+        function updateMoleculeStats() {
+            document.getElementById('atom-count').textContent = state.molecules.length;
+            document.getElementById('bond-count').textContent = state.bonds.length;
+            
+            let totalMass = 0;
+            state.compounds.forEach(c => {
+                totalMass += c.mass * (c.percentage / 100);
+            });
+            document.getElementById('mol-mass').textContent = totalMass.toFixed(2);
+        }
+
+        function drawMolecules() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Draw glow effect
+            const glowRadius = Math.max(1, 100 + state.volatility * 1.5);
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
+            gradient.addColorStop(0, 'rgba(0, 229, 204, 0.15)');
+            gradient.addColorStop(0.5, 'rgba(0, 229, 204, 0.05)');
+            gradient.addColorStop(1, 'rgba(0, 229, 204, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Rotation
+            if (state.isRotating) {
+                state.rotationAngle += 0.005;
+            }
+            
+            // Sort by Z for proper depth
+            const sortedMolecules = [...state.molecules].sort((a, b) => a.z - b.z);
+            
+            // Update positions
+            state.molecules.forEach(mol => {
+                if (state.isRotating) {
+                    const dx = mol.x - mol.baseX;
+                    const dy = mol.y - mol.baseY;
+                    const cos = Math.cos(0.005);
+                    const sin = Math.sin(0.005);
+                    mol.x = mol.baseX + dx * cos - dy * sin;
+                    mol.y = mol.baseY + dx * sin + dy * cos;
+                }
+                
+                // Add instability movement
+                if (state.instability > 0) {
+                    mol.x += (Math.random() - 0.5) * state.instability * 0.1;
+                    mol.y += (Math.random() - 0.5) * state.instability * 0.1;
+                }
+            });
+            
+            // Draw bonds
+            ctx.strokeStyle = 'rgba(0, 229, 204, 0.3)';
+            ctx.lineWidth = 1;
+            state.bonds.forEach(bond => {
+                const from = state.molecules[bond.from];
+                const to = state.molecules[bond.to];
+                const dist = Math.sqrt((from.x - to.x) ** 2 + (from.y - to.y) ** 2);
+                if (dist < 150) {
+                    ctx.globalAlpha = 1 - dist / 150;
+                    ctx.beginPath();
+                    ctx.moveTo(from.x, from.y);
+                    ctx.lineTo(to.x, to.y);
+                    ctx.stroke();
+                }
+            });
+            ctx.globalAlpha = 1;
+            
+            // Draw atoms
+            sortedMolecules.forEach(mol => {
+                const scale = 1 + mol.z / 100;
+                const radius = Math.max(2, mol.radius * scale);
+                
+                // Glow
+                const atomGlow = ctx.createRadialGradient(mol.x, mol.y, 0, mol.x, mol.y, radius * 3);
+                atomGlow.addColorStop(0, mol.color);
+                atomGlow.addColorStop(0.3, mol.color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
+                atomGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = atomGlow;
+                ctx.beginPath();
+                ctx.arc(mol.x, mol.y, radius * 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Core
+                ctx.fillStyle = mol.color;
+                ctx.beginPath();
+                ctx.arc(mol.x, mol.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.beginPath();
+                ctx.arc(mol.x - radius * 0.3, mol.y - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            requestAnimationFrame(drawMolecules);
+        }
+
+        // ============== CALCULATIONS ==============
+        function updateVolatility() {
+            const totalPercentage = state.compounds.reduce((sum, c) => sum + c.percentage, 0);
+            const clF3Percentage = state.compounds.find(c => c.id === 'clF3')?.percentage || 0;
+            const catalystMultiplier = state.catalysts.filter(c => c.selected).reduce((sum, c) => sum + c.factor, 1);
+            
+            let volatility = 0;
+            
+            // Base volatility from composition
+            volatility += clF3Percentage * 2;
+            volatility += (state.compounds.find(c => c.id === 'triethylaluminum')?.percentage || 0) * 1.5;
+            
+            // Temperature factor
+            volatility += (state.temperature - 1000) / 100;
+            
+            // Pressure factor
+            volatility += state.pressure * 0.3;
+            
+            // Instability
+            volatility += state.instability * 0.5;
+            
+            // Catalyst multiplier
+            volatility *= catalystMultiplier;
+            
+            // Enhancement
+            volatility *= state.enhancement;
+            
+            // Normalize
+            state.volatility = Math.min(100, Math.max(0, volatility / 3));
+            
+            // Update UI
+            document.getElementById('volatility-bar').style.width = state.volatility + '%';
+            document.getElementById('volatility-value').textContent = Math.round(state.volatility) + '%';
+            
+            // Warning
+            const warning = document.getElementById('volatility-warning');
+            if (state.volatility > 75) {
+                warning.classList.remove('hidden');
+                log('ATTENTION: Seuil de volatilite critique!', 'error');
+            } else {
+                warning.classList.add('hidden');
+            }
+            
+            initMolecules();
+        }
+
+        function updateProperties() {
+            const catalystBonus = state.catalysts.filter(c => c.selected).reduce((sum, c) => sum + c.factor - 1, 1);
+            const tempFactor = state.temperature / 2500;
+            const pressureFactor = 1 + state.pressure / 100;
+            
+            state.properties.forEach(prop => {
+                let modifier = 1;
+                
+                switch (prop.id) {
+                    case 'energy':
+                        modifier = catalystBonus * tempFactor * state.enhancement;
+                        break;
+                    case 'density':
+                        modifier = pressureFactor * (1 - state.instability / 200);
+                        break;
+                    case 'flashpoint':
+                        modifier = 1 - (state.volatility / 200);
+                        break;
+                    case 'viscosity':
+                        modifier = 1 - (state.temperature - 2500) / 5000;
+                        break;
+                }
+                
+                prop.value = prop.base * modifier;
+            });
+            
+            renderProperties();
+        }
+
+        function updateFormula() {
+            const parts = [];
+            
+            state.compounds.forEach(c => {
+                if (c.percentage > 0) {
+                    const coef = Math.round(c.percentage / 10);
+                    if (coef > 0) {
+                        parts.push(`${c.symbol}(${coef})`);
+                    }
+                }
+            });
+            
+            const selectedCatalysts = state.catalysts.filter(c => c.selected);
+            if (selectedCatalysts.length > 0) {
+                parts.push('[' + selectedCatalysts.map(c => c.symbol).join('-') + ']');
+            }
+            
+            const formulaDisplay = document.getElementById('formula-display');
+            if (parts.length > 0) {
+                formulaDisplay.innerHTML = parts.join(' + ').replace(/(\d+)/g, '<sub>$1</sub>');
+            } else {
+                formulaDisplay.innerHTML = '<span class="text-[var(--text-muted)]">En attente de composition...</span>';
+            }
+        }
+
+        // ============== EVENT HANDLERS ==============
+        function toggleCatalyst(id) {
+            const catalyst = state.catalysts.find(c => c.id === id);
+            if (catalyst) {
+                catalyst.selected = !catalyst.selected;
+                renderCatalysts();
+                updateVolatility();
+                updateProperties();
+                log(`Catalyseur ${catalyst.name} ${catalyst.selected ? 'active' : 'desactive'}`, catalyst.selected ? 'warning' : 'info');
+            }
+        }
+
+        function setupEventListeners() {
+            // Control sliders
+            document.getElementById('temperature').addEventListener('input', (e) => {
+                state.temperature = parseInt(e.target.value);
+                document.getElementById('temp-value').textContent = state.temperature + 'K';
+                updateVolatility();
+                updateProperties();
+            });
+            
+            document.getElementById('pressure').addEventListener('input', (e) => {
+                state.pressure = parseInt(e.target.value);
+                document.getElementById('pressure-value').textContent = (state.pressure * 0.04).toFixed(1) + ' MPa';
+                updateVolatility();
+                updateProperties();
+            });
+            
+            document.getElementById('instability').addEventListener('input', (e) => {
+                state.instability = parseInt(e.target.value);
+                document.getElementById('instability-value').textContent = state.instability + '%';
+                updateVolatility();
+                updateProperties();
+                if (state.instability > 50) {
+                    log('Instabilite elevee detectee', 'warning');
+                }
+            });
+            
+            document.getElementById('enhancement').addEventListener('input', (e) => {
+                state.enhancement = parseInt(e.target.value) / 10;
+                document.getElementById('enhancement-value').textContent = state.enhancement.toFixed(1) + 'x';
+                updateVolatility();
+                updateProperties();
+            });
+            
+            // Buttons
+            document.getElementById('btn-rotate').addEventListener('click', () => {
+                state.isRotating = !state.isRotating;
+                log('Rotation ' + (state.isRotating ? 'activee' : 'desactivee'), 'info');
+            });
+            
+            document.getElementById('btn-reset-view').addEventListener('click', () => {
+                state.rotationAngle = 0;
+                initMolecules();
+                log('Vue reinitialisee', 'info');
+            });
+            
+            document.getElementById('btn-synthesize').addEventListener('click', () => {
+                log('Synthese en cours...', 'info');
+                setTimeout(() => {
+                    log('Formule synthetisee avec succes', 'success');
+                    log(`Volatilite finale: ${Math.round(state.volatility)}%`, 'info');
+                }, 1500);
+            });
+            
+            document.getElementById('btn-stabilize').addEventListener('click', () => {
+                state.instability = 0;
+                document.getElementById('instability').value = 0;
+                document.getElementById('instability-value').textContent = '0%';
+                
+                state.compounds.forEach(c => c.percentage = Math.min(c.percentage, 25));
+                renderBaseCompounds();
+                
+                updateVolatility();
+                updateProperties();
+                log('Protocol de stabilisation execute', 'success');
+                log('Composants reequilibrres', 'info');
+            });
+            
+            document.getElementById('btn-clear-log').addEventListener('click', () => {
+                document.getElementById('system-log').innerHTML = '';
+                log('Journal efface', 'info');
+            });
+            
+            document.getElementById('btn-copy-formula').addEventListener('click', () => {
+                const formula = document.getElementById('formula-display').textContent;
+                navigator.clipboard.writeText(formula).then(() => {
+                    log('Formule copiee dans le presse-papier', 'success');
+                });
+            });
+        }
+
+        // ============== LOGGING ==============
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('system-log');
+            const timestamp = new Date().toLocaleTimeString('fr-FR');
+            
+            const colors = {
+                info: 'var(--text-muted)',
+                warning: 'var(--accent-amber)',
+                error: 'var(--accent-red)',
+                success: 'var(--accent-cyan)'
+            };
+            
+            const entry = document.createElement('div');
+            entry.style.color = colors[type];
+            entry.innerHTML = `<span class="text-[var(--text-muted)]">[${timestamp}]</span> ${message}`;
+            
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // ============== ANIMATIONS ==============
+        function startAnimations() {
+            // Session timer
+            let seconds = 0;
+            setInterval(() => {
+                seconds++;
+                const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('session-timer').textContent = `${h}:${m}:${s}`;
+            }, 1000);
+            
+            // Current time
+            setInterval(() => {
+                document.getElementById('current-time').textContent = new Date().toLocaleString('fr-FR');
+            }, 1000);
+            
+            // Start molecule rendering
+            drawMolecules();
+        }
+
+        // ============== START ==============
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
